@@ -28,8 +28,9 @@ jobs:
           pip install PyQt5==5.15.11
           pip install PyInstaller==6.19.0
           pip install tinycss==0.4 rsa==3.4.2 requests==2.25.1
-          pip install send2trash pywinpty pywin32 adodbapi
-          pip install "http://build-system.fman.io/pro/b5aab865-bd29-4f23-992c-0eb4f3a24f33/0.9.4#egg=fbs[sentry]"
+          pip install send2trash pywinpty pywin32
+          pip install adodbapi --no-build-isolation
+          pip install "fbs[sentry] @ http://build-system.fman.io/pro/b5aab865-bd29-4f23-992c-0eb4f3a24f33/0.9.4"
         shell: cmd
 
       - name: Add NSIS to PATH
