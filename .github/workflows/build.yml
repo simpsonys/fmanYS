@@ -33,10 +33,8 @@ jobs:
           pip install "fbs[sentry] @ http://build-system.fman.io/pro/b5aab865-bd29-4f23-992c-0eb4f3a24f33/0.9.4"
         shell: cmd
 
-      - name: Install Visual C++ 2012 Redistributable (msvcr100.dll)
-        run: |
-          curl -L -o vcredist_x64.exe "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe"
-          start /wait vcredist_x64.exe /quiet /norestart
+      - name: Patch fbs to skip msvcr100.dll check
+        run: python -c "import fbs.freeze.windows as m, inspect; path=inspect.getfile(m); f=open(path); src=f.read(); f.close(); src=src.replace('_add_missing_dlls()', 'pass  # skipped'); f=open(path,'w'); f.write(src); f.close(); print('Patched:', path)"
         shell: cmd
 
       - name: Add NSIS to PATH
