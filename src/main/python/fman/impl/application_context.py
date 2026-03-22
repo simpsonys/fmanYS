@@ -97,13 +97,6 @@ class DevelopmentApplicationContext(ApplicationContext):
 				self.metrics.update_user(
 					is_licensed=True, email=self.user.email
 				)
-		else:
-			if self.session_manager.is_first_run:
-				pane = self.plugin_support.get_panes()[0]
-				tutorial = self.tutorial_factory(pane)
-				self.tour_controller.start(tutorial)
-			else:
-				self.splash_screen.exec()
 	def on_main_window_close(self):
 		self.session_manager.on_close(self.main_window)
 	def on_quit(self):
@@ -117,7 +110,7 @@ class DevelopmentApplicationContext(ApplicationContext):
 		result = Application([sys.argv[0]])
 		result.setOrganizationName('fman.io')
 		result.setOrganizationDomain('fman.io')
-		result.setApplicationName('fman')
+		result.setApplicationName('fmanYS')
 		result.setStyle(self.style)
 		result.setPalette(self.palette)
 		result.aboutToQuit.connect(self.on_quit)
@@ -157,7 +150,7 @@ class DevelopmentApplicationContext(ApplicationContext):
 			self.app.set_main_window(self._main_window)
 		return self._main_window
 	def _get_main_window_title(self):
-		return 'fman' if self.is_licensed else 'fman – NOT REGISTERED'
+		return 'fmanYS'
 	@cached_property
 	def help_menu_actions(self):
 		if is_mac():

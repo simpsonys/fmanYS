@@ -1,0 +1,77 @@
+name: Build and Release fmanYS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "setuptools<72"
+          pip install PyQt5==5.15.11
+          pip install PyInstaller==6.19.0
+          pip install tinycss==0.4 rsa==3.4.2 requests==2.25.1
+          pip install send2trash pywinpty pywin32 adodbapi
+          pip install "http://build-system.fman.io/pro/b5aab865-bd29-4f23-992c-0eb4f3a24f33/0.9.4#egg=fbs[sentry]"
+        shell: cmd
+
+      - name: Add NSIS to PATH
+        run: echo C:\Program Files (x86)\NSIS >> %GITHUB_PATH%
+        shell: cmd
+
+      - name: Build frozen directory exe
+        run: python build.py freeze
+        shell: cmd
+
+      - name: Build installer exe
+        run: python build.py installer
+        continue-on-error: true
+        shell: cmd
+
+      - name: Build portable exe
+        run: python build_portable.py
+        shell: cmd
+
+      - name: Get version
+        id: version
+        run: |
+          python -c "import json; d=json.load(open('src/build/settings/base.json')); print('VERSION=' + d['version'])" >> %GITHUB_OUTPUT%
+        shell: cmd
+
+      - name: List release artifacts
+        run: |
+          dir target\PyInstaller\fmanYS-portable\
+          dir target\ /b
+        shell: cmd
+        continue-on-error: true
+
+      - name: Upload release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}-build.${{ github.run_number }}
+          name: fmanYS v${{ steps.version.outputs.VERSION }} (Build ${{ github.run_number }})
+          draft: false
+          prerelease: true
+          fail_on_unmatched_files: false
+          files: |
+            target/PyInstaller/fmanYS-portable/fmanYS-portable.exe
+            target/fmanYS Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

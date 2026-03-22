@@ -1180,8 +1180,9 @@ class CommandPalette(DirectoryPaneCommand):
 			self._last_query = self._last_cmd_name = ''
 	def _suggest_commands(self, query):
 		result = [[] for _ in self._MATCHERS]
-		key_bindings = load_json('Key Bindings.json')
-		for cmd_name, aliases, command in self._get_all_commands():
+		key_bindings = load_json('Key Bindings.json') or []
+		all_cmds = list(self._get_all_commands())
+		for cmd_name, aliases, command in all_cmds:
 			for alias in aliases:
 				this_alias_matched = False
 				for i, matcher in enumerate(self._MATCHERS):

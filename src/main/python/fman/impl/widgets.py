@@ -293,6 +293,7 @@ class MainWindow(QMainWindow):
 		self._timer.timeout.connect(self.clear_status_message)
 		self._timer.setSingleShot(True)
 		self._dialog = None
+		self.menuBar().setVisible(False)
 		self._init_help_menu(help_menu_actions)
 	def set_controller(self, controller):
 		self._controller = controller
@@ -408,10 +409,21 @@ class MainWindow(QMainWindow):
 		self.setWindowState(Qt.WindowMinimized)
 	def showEvent(self, *args):
 		super().showEvent(*args)
+		if is_windows():
+			self._apply_dark_title_bar()
 		# singleShot after 50 ms (not 0) ensures that the window is already
 		# fully visible. Any alerts we show in response to .shown are then
 		# placed correctly over the center of the window.
 		QTimer(self).singleShot(50, self.shown.emit)
+	def _apply_dark_title_bar(self):
+		import ctypes
+		hwnd = int(self.winId())
+		DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+		value = ctypes.c_int(1)
+		ctypes.windll.dwmapi.DwmSetWindowAttribute(
+			hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+			ctypes.byref(value), ctypes.sizeof(value)
+		)
 	def closeEvent(self, _):
 		self.closed.emit()
 	@run_in_main_thread

@@ -113,6 +113,11 @@ class Quicksearch(QDialog):
 	def _adjust_item_list_ize(self, min_num_items_to_display=7):
 		num_items = len(self._curr_items)
 		row_height = self._items.sizeHintForRow(0)
+		if row_height <= 0 and num_items > 0:
+			# sizeHintForRow can return 0 when the delegate fails silently.
+			# Fall back to font metrics height + padding.
+			from PyQt5.QtGui import QFontMetrics
+			row_height = QFontMetrics(self._items.font()).height() + 6
 		max_height = num_items * row_height
 		self._items.setMaximumHeight(max_height)
 		if num_items >= min_num_items_to_display:
@@ -179,7 +184,13 @@ class QuicksearchItemDelegate(QStyledItemDelegate):
 	def paint(self, painter, option, index):
 		self._get_renderer(option, index).render(painter)
 	def sizeHint(self, option, index):
-		return self._get_renderer(option, index).sizeHint()
+		try:
+			return self._get_renderer(option, index).sizeHint()
+		except Exception:
+			from PyQt5.QtGui import QFontMetrics
+			h = QFontMetrics(option.font).height() + 6
+			w = option.rect.width() if option.rect.isValid() else 400
+			return QSize(w, h)
 	def _get_renderer(self, option, index):
 		item = index.data(ItemRole)
 		self.initStyleOption(option, index)
@@ -216,7 +227,7 @@ class QuicksearchItemRenderer:
 			width = max(width, w)
 			height += h
 		width += self._padding_left + self._padding_right
-		return QSize(width, height)
+		return QSize(int(width), int(height))
 	def _draw_background(self, painter):
 		self._proxy.drawPrimitive(
 			QStyle.PE_PanelItemViewItem, self._option, painter, self._widget
