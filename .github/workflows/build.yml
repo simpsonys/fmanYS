@@ -34,7 +34,7 @@ jobs:
         shell: cmd
 
       - name: Patch fbs to skip msvcr100.dll check
-        run: python -c "import fbs.freeze.windows as m, inspect; path=inspect.getfile(m); f=open(path); src=f.read(); f.close(); src=src.replace('_add_missing_dlls()', 'pass  # skipped'); f=open(path,'w'); f.write(src); f.close(); print('Patched:', path)"
+        run: python patch_fbs_freeze.py
         shell: cmd
 
       - name: Add NSIS to PATH
