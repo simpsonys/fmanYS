@@ -9,8 +9,10 @@ path = inspect.getfile(m)
 with open(path, encoding='utf-8') as f:
     src = f.read()
 
-if '_add_missing_dlls()' in src:
-    src = src.replace('_add_missing_dlls()', 'pass  # skipped: msvcr100.dll not required')
+call = '\n    _add_missing_dlls()\n'
+replacement = '\n    pass  # skipped: msvcr100.dll not required\n'
+if call in src:
+    src = src.replace(call, replacement)
     with open(path, 'w', encoding='utf-8') as f:
         f.write(src)
     print('Patched:', path)
