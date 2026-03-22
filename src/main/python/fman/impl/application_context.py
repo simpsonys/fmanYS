@@ -3,7 +3,7 @@ from fbs_runtime.application_context import cached_property
 from fbs_runtime.application_context.PyQt5 import ApplicationContext
 from fbs_runtime.excepthook import StderrExceptionHandler
 from fbs_runtime.excepthook.sentry import SentryExceptionHandler
-from fbs_runtime.platform import is_mac
+from fbs_runtime.platform import is_mac, is_windows
 from fman import PLATFORM, DATA_DIRECTORY, Window
 from fman.impl.controller import Controller
 from fman.impl.font_database import FontDatabase
@@ -28,7 +28,7 @@ from fman.impl.theme import Theme
 from fman.impl.onboarding import TourController
 from fman.impl.onboarding.cleanup_guide import CleanupGuide
 from fman.impl.onboarding.tutorial import Tutorial
-from fman.impl.updater import MacUpdater
+from fman.impl.updater import MacUpdater, WindowsUpdater
 from fman.impl.usage_helper import UsageHelper
 from fman.impl.util import os_
 from fman.impl.util.qt import connect_once
@@ -451,8 +451,20 @@ class FrozenApplicationContext(DevelopmentApplicationContext):
 		super().on_main_window_shown()
 	@cached_property
 	def updater(self):
+		if is_windows():
+			return self._make_windows_updater()
 		if self._should_auto_update():
 			return MacUpdater(self.app)
+	def _make_windows_updater(self):
+		try:
+			tag_path = self.get_resource('build_tag.txt')
+			with open(tag_path, encoding='utf-8') as f:
+				current_tag = f.read().strip()
+		except Exception:
+			current_tag = ''
+		if current_tag == 'v0.0.0-local':
+			return None
+		return WindowsUpdater(self.app, current_tag)
 	@cached_property
 	def exception_handlers(self):
 		result = super().exception_handlers

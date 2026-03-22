@@ -33,6 +33,19 @@ jobs:
           pip install "fbs[sentry] @ http://build-system.fman.io/pro/b5aab865-bd29-4f23-992c-0eb4f3a24f33/0.9.4"
         shell: cmd
 
+      - name: Get version
+        id: version
+        run: |
+          python -c "import json; d=json.load(open('src/build/settings/base.json')); print('VERSION=' + d['version'])" >> %GITHUB_OUTPUT%
+        shell: cmd
+
+      - name: Write build tag into resources
+        run: echo v%VERSION%-build.%GITHUB_RUN_NUMBER%> src\main\resources\base\build_tag.txt
+        shell: cmd
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+
       - name: Patch fbs to skip msvcr100.dll check
         run: python patch_fbs_freeze.py
         shell: cmd
@@ -52,12 +65,6 @@ jobs:
 
       - name: Build portable exe
         run: python build_portable.py
-        shell: cmd
-
-      - name: Get version
-        id: version
-        run: |
-          python -c "import json; d=json.load(open('src/build/settings/base.json')); print('VERSION=' + d['version'])" >> %GITHUB_OUTPUT%
         shell: cmd
 
       - name: List release artifacts
