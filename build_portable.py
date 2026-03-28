@@ -1,7 +1,14 @@
 """
 Build a single-file portable exe using PyInstaller.
 Run 'python build.py freeze' first to generate target/fmanYS/.
+
+Plugins bundled from:
+  - target/fmanYS/Plugins          (shipped)
+  - %APPDATA%/fman/Plugins/Third-party  (user-installed)
+  - %APPDATA%/fman/Plugins/User         (user settings/personal)
 """
+import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -18,6 +25,26 @@ from pathlib import Path as _Path
 fbs_hooks_dir = _Path(fbs.__file__).parent / 'freeze' / 'hooks'
 
 sep = ';'  # Windows path separator for --add-data
+
+# ---------------------------------------------------------------------------
+# Copy user-installed plugins into the freeze target so PyInstaller bundles
+# them. __pycache__ dirs are excluded — plugins will recompile on first run.
+# ---------------------------------------------------------------------------
+appdata = Path(os.environ.get('APPDATA', ''))
+user_plugins_root = appdata / 'fman' / 'Plugins'
+
+for subdir in ('Third-party', 'User'):
+    src = user_plugins_root / subdir
+    dst = target_fmanys / 'Plugins' / subdir
+    if not src.exists():
+        continue
+    print(f"Copying {src} -> {dst}")
+    if dst.exists():
+        shutil.rmtree(dst)
+    shutil.copytree(
+        src, dst,
+        ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '*.pyo'),
+    )
 
 import PyInstaller.__main__
 
@@ -41,6 +68,8 @@ args = [
     '--hidden-import', 'win32gui',
     '--hidden-import', 'winpty',
     '--hidden-import', 'win32wnet',
+    '--hidden-import', 'tinycss',
+    '--hidden-import', 'tinycss.parsing',
     '--additional-hooks-dir', str(fbs_hooks_dir),
     '--runtime-hook', str(fbs_hook),
     '--runtime-hook', str(portable_hook),
