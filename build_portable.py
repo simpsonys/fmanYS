@@ -60,6 +60,7 @@ args = [
     '--add-data', f"{target_fmanys / 'styles.qss'}{sep}.",
     '--add-data', f"{target_fmanys / 'os_styles.qss'}{sep}.",
     '--add-data', f"{target_fmanys / 'Icon.ico'}{sep}.",
+    '--collect-data', 'certifi',
     '--hidden-import', 'requests',
     '--hidden-import', 'ctypes.wintypes',
     '--hidden-import', 'adodbapi',

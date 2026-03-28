@@ -74,7 +74,8 @@ class WindowsUpdater:
 				return
 			latest = releases[0]
 			tag = latest.get('tag_name', '')
-			if not tag or tag == self._current_tag:
+			# current_tag may be 'v1.7.5-260328-1234'; tag is 'v1.7.5'
+			if not tag or self._current_tag == tag or self._current_tag.startswith(tag + '-'):
 				return
 			url = self._find_asset_url(latest, 'portable')
 			if not url:
