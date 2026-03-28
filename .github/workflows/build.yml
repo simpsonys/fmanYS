@@ -3,6 +3,8 @@ name: Build and Release fmanYS
 on:
   push:
     branches: [main]
+    tags:
+      - 'v[0-9]*'
   workflow_dispatch:
 
 permissions:
@@ -33,18 +35,33 @@ jobs:
           pip install "fbs[sentry] @ http://build-system.fman.io/pro/b5aab865-bd29-4f23-992c-0eb4f3a24f33/0.9.4"
         shell: cmd
 
-      - name: Get version
+      - name: Get version and timestamp
         id: version
+        shell: python
         run: |
-          python -c "import json; d=json.load(open('src/build/settings/base.json')); print('VERSION=' + d['version'])" >> %GITHUB_OUTPUT%
-        shell: cmd
+          import json, os
+          from datetime import datetime, timezone
+
+          with open('src/build/settings/base.json') as f:
+              ver = json.load(f)['version']
+
+          dt = datetime.now(timezone.utc).strftime('%y%m%d-%H%M')
+          ref = os.environ.get('GITHUB_REF', '')
+          run_num = os.environ.get('GITHUB_RUN_NUMBER', '0')
+
+          is_tag = ref.startswith('refs/tags/')
+          tag_name = ref.split('/')[-1] if is_tag else f'v{ver}-build.{run_num}'
+          build_ver = f'v{ver}-{dt}' if is_tag else f'v{ver}-{dt}-build.{run_num}'
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'VERSION={ver}\n')
+              f.write(f'BUILD_VER={build_ver}\n')
+              f.write(f'TAG_NAME={tag_name}\n')
+              f.write(f'IS_TAG={"true" if is_tag else "false"}\n')
 
       - name: Write build tag into resources
-        run: echo v%VERSION%-build.%GITHUB_RUN_NUMBER%> src\main\resources\base\build_tag.txt
         shell: cmd
-        env:
-          VERSION: ${{ steps.version.outputs.VERSION }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: echo ${{ steps.version.outputs.BUILD_VER }}> src\main\resources\base\build_tag.txt
 
       - name: Patch fbs to skip msvcr100.dll check
         run: python patch_fbs_freeze.py
@@ -54,7 +71,7 @@ jobs:
         run: echo C:\Program Files (x86)\NSIS >> %GITHUB_PATH%
         shell: cmd
 
-      - name: Build frozen directory exe
+      - name: Build frozen directory
         run: python build.py freeze
         shell: cmd
 
@@ -67,18 +84,36 @@ jobs:
         run: python build_portable.py
         shell: cmd
 
-      - name: List release artifacts
-        run: |
-          dir target\PyInstaller\fmanYS-portable\
-          dir target\ /b
+      - name: List artifacts
+        run: dir target\PyInstaller\fmanYS-portable\ /b
         shell: cmd
         continue-on-error: true
 
-      - name: Upload release
+      # Tag push → stable release (exe attached, prerelease=false)
+      - name: Upload stable release
+        if: steps.version.outputs.IS_TAG == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.VERSION }}-build.${{ github.run_number }}
-          name: fmanYS v${{ steps.version.outputs.VERSION }} (Build ${{ github.run_number }})
+          tag_name: ${{ steps.version.outputs.TAG_NAME }}
+          name: fmanYS ${{ steps.version.outputs.TAG_NAME }}
+          body: |
+            Build: `${{ steps.version.outputs.BUILD_VER }}`
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
+          files: |
+            target/PyInstaller/fmanYS-portable/fmanYS-portable.exe
+            target/fmanYS Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # main push (no tag) → pre-release only
+      - name: Upload pre-release
+        if: steps.version.outputs.IS_TAG == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG_NAME }}
+          name: fmanYS ${{ steps.version.outputs.BUILD_VER }}
           draft: false
           prerelease: true
           fail_on_unmatched_files: false
