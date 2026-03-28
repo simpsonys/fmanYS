@@ -67,8 +67,8 @@ jobs:
         run: python patch_fbs_freeze.py
         shell: cmd
 
-      - name: Add NSIS to PATH
-        run: echo C:\Program Files (x86)\NSIS >> %GITHUB_PATH%
+      - name: Install NSIS
+        run: choco install nsis --no-progress -y
         shell: cmd
 
       - name: Build frozen directory
