@@ -1,0 +1,13 @@
+[
+    {"keys": ["F2"],      "command": "rename"},
+    {"keys": ["F3"],      "command": "go_to_current_directory"},
+    {"keys": ["F6"],      "command": "create_and_edit_file"},
+    {"keys": ["F7"],      "command": "flat_view"},
+    {"keys": ["Ctrl+C"],  "command": "go_to_drive", "args": {"drive": "C"}},
+    {"keys": ["Ctrl+D"],  "command": "go_to_drive", "args": {"drive": "D"}},
+    {"keys": ["Ctrl+E"],  "command": "go_to_drive", "args": {"drive": "E"}},
+    {"keys": ["Ctrl+Right"], "command": "copy_to_right_pane"},
+    {"keys": ["Ctrl+Left"],  "command": "copy_to_left_pane"},
+    {"keys": ["Alt+Right"],  "command": "move_to_right_pane"},
+    {"keys": ["Alt+Left"],   "command": "move_to_left_pane"}
+]
