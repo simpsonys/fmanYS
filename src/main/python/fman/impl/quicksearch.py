@@ -39,6 +39,17 @@ class Quicksearch(QDialog):
 	def showEvent(self, event):
 		super().showEvent(event)
 		self.shown.emit()
+		self._ensure_on_screen()
+	def _ensure_on_screen(self):
+		screen = QApplication.primaryScreen()
+		if not screen:
+			return
+		avail = screen.availableGeometry()
+		geo = self.frameGeometry()
+		x = max(avail.left(), min(geo.left(), avail.right() - geo.width()))
+		y = max(avail.top(), min(geo.top(), avail.bottom() - geo.height()))
+		if x != geo.left() or y != geo.top():
+			self.move(x, y)
 	def _init_ui(self):
 		self._query = LineEdit(self._initial_query, self)
 		self._query.keyPressEventFilter = self._on_key_pressed
@@ -118,7 +129,20 @@ class Quicksearch(QDialog):
 			# Fall back to font metrics height + padding.
 			from PyQt5.QtGui import QFontMetrics
 			row_height = QFontMetrics(self._items.font()).height() + 6
-		max_height = num_items * row_height
+		# Cap max visible items based on available screen height to prevent
+		# the dialog from extending off-screen.
+		max_items = num_items
+		if row_height > 0:
+			screen = QApplication.primaryScreen()
+			if screen:
+				avail_h = screen.availableGeometry().height()
+				# Reserve ~120 px for the query input box, borders, and taskbar.
+				usable_h = max(
+					avail_h - 120,
+					min_num_items_to_display * row_height
+				)
+				max_items = min(num_items, usable_h // row_height)
+		max_height = max_items * row_height
 		self._items.setMaximumHeight(max_height)
 		if num_items >= min_num_items_to_display:
 			min_height = min_num_items_to_display * row_height

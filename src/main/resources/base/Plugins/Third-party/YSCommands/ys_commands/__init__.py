@@ -1,8 +1,9 @@
 import os
-import sys
+import subprocess
+import tempfile
 from fman import (
     DirectoryPaneCommand, DirectoryPaneListener,
-    _get_app_ctxt, run_application_command
+    _get_app_ctxt, run_application_command, show_prompt
 )
 from fman.impl.util.qt.thread import run_in_main_thread
 from fman.url import as_url
@@ -69,7 +70,61 @@ class GoToCurrentDirectory(DirectoryPaneCommand):
 
 
 # =============================================================================
-# 4. Windows dark title bar
+# 4. Tree View  (Ctrl+T)
+# =============================================================================
+
+def _run_cmd_and_open(cmd, cwd, filename):
+    """Run a shell command and open the output in the system default editor."""
+    try:
+        proc = subprocess.run(
+            cmd, shell=True, cwd=cwd,
+            capture_output=True, text=True, encoding='utf-8', errors='replace'
+        )
+        output = proc.stdout
+        if proc.returncode != 0 and proc.stderr:
+            output += '\n--- STDERR ---\n' + proc.stderr
+    except Exception as e:
+        output = f'Error running command:\n{e}'
+    tmp = os.path.join(tempfile.gettempdir(), filename)
+    with open(tmp, 'w', encoding='utf-8') as f:
+        f.write(f'Command: {cmd}\n{"=" * 60}\n{output}')
+    os.startfile(tmp)
+
+
+class TreeView(DirectoryPaneCommand):
+    """Show folder tree via `tree /a`. Prompts user to edit command first."""
+    def __call__(self):
+        from fman.url import as_human_readable
+        path = as_human_readable(self.pane.get_path())
+        default_cmd = f'tree /a "{path}"'
+        result = show_prompt(
+            'Tree View — edit command, then press Enter:',
+            default=default_cmd
+        )
+        if result and result[1]:
+            _run_cmd_and_open(result[0], path, 'tree_view.txt')
+
+
+# =============================================================================
+# 5. File List  (Ctrl+L)
+# =============================================================================
+
+class FileList(DirectoryPaneCommand):
+    """Show recursive file list via `dir /s /o /b`. Prompts user to edit first."""
+    def __call__(self):
+        from fman.url import as_human_readable
+        path = as_human_readable(self.pane.get_path())
+        default_cmd = f'dir /s /o /b "{path}"'
+        result = show_prompt(
+            'File List — edit command, then press Enter:',
+            default=default_cmd
+        )
+        if result and result[1]:
+            _run_cmd_and_open(result[0], path, 'file_list.txt')
+
+
+# =============================================================================
+# 6. Windows dark title bar
 # =============================================================================
 
 def _apply_dark_titlebar(hwnd):
@@ -98,14 +153,16 @@ class DarkTitleBarFilter(QObject):
 
 
 # =============================================================================
-# 4. Dynamic Action Bar
+# 7. Dynamic Action Bar
 # =============================================================================
 
 # Each entry: (label, 'pane'|'app', command_name, args_dict)
 BUTTON_GROUPS = {
     'default': [
-        ('[F3] GoTo Current', 'pane', 'go_to_current_directory', {}),
         ('[F2] Rename',       'pane', 'rename',                   {}),
+        ('[F3] GoTo Current', 'pane', 'go_to_current_directory',  {}),
+        ('[F4] Edit File',    'pane', 'edit',                     {}),
+        ('[F5] Open VSCode',  'pane', 'open_folder_in_vscode',    {}),
         ('[F6] New File',     'pane', 'create_and_edit_file',     {}),
         ('[F7] New Folder',   'pane', 'create_directory',         {}),
         ('[F8] Flat View',    'pane', 'flat_view',                {}),
@@ -114,11 +171,10 @@ BUTTON_GROUPS = {
         ('[F11] Copy Path',   'pane', 'copy_paths_to_clipboard',  {}),
     ],
     'ctrl': [
-        ('[C] C Drive',  'pane', 'go_to_drive',        {'drive': 'C'}),
-        ('[D] D Drive',  'pane', 'go_to_drive',        {'drive': 'D'}),
-        ('[E] E Drive',  'pane', 'go_to_drive',        {'drive': 'E'}),
-        ('[→] Copy →',   'pane', 'copy_to_right_pane', {}),
-        ('[←] ← Copy',  'pane', 'copy_to_left_pane',  {}),
+        ('[→] Copy →',        'pane', 'copy_to_right_pane', {}),
+        ('[←] ← Copy',       'pane', 'copy_to_left_pane',  {}),
+        ('[T] Tree View',     'pane', 'tree_view',           {}),
+        ('[L] File List',     'pane', 'file_list',           {}),
     ],
     'ctrl_shift': [
         ('[P] Palette',    'app',  'command_palette',      {}),
@@ -128,11 +184,14 @@ BUTTON_GROUPS = {
         ('[Del] Perm Del', 'pane', 'delete_permanently',   {}),
     ],
     'alt': [
+        ('[C] C Drive',   'pane', 'go_to_drive',        {'drive': 'C'}),
+        ('[D] D Drive',   'pane', 'go_to_drive',        {'drive': 'D'}),
+        ('[E] E Drive',   'pane', 'go_to_drive',        {'drive': 'E'}),
         ('[←] ← Move',   'pane', 'move_to_left_pane',        {}),
-        ('[→] Move →',    'pane', 'move_to_right_pane',       {}),
-        ('[↑] Go Up',     'pane', 'go_up',                    {}),
+        ('[→] Move →',   'pane', 'move_to_right_pane',       {}),
+        ('[↑] Go Up',    'pane', 'go_up',                    {}),
         ('[Enter] Props', 'pane', 'show_explorer_properties', {}),
-        ('[F5] Pack',     'pane', 'pack',                     {}),
+        ('[F5] Pack',    'pane', 'pack',                     {}),
     ],
 }
 
@@ -277,6 +336,8 @@ class PaneTracker(DirectoryPaneListener):
 
 _container = None
 
+_VER_LABEL_NAME = '_ys_version_label'
+
 
 def _get_version():
     """Read version from build_tag.txt (CI-generated) or fall back to fman version."""
@@ -303,11 +364,20 @@ def _init():
     # Apply dark title bar to main window
     _apply_dark_titlebar(int(window.winId()))
 
-    # Show version in bottom-right of status bar
+    # Show version in bottom-right of status bar.
+    # Remove any existing label first to prevent duplicates on Reload Plugin.
+    status_bar = window.statusBar()
+    for child in status_bar.children():
+        if isinstance(child, QLabel) and child.objectName() == _VER_LABEL_NAME:
+            status_bar.removeWidget(child)
+            child.deleteLater()
+            break
+
     version = _get_version()
     ver_label = QLabel('  ' + version + '  ')
-    ver_label.setStyleSheet('color: #6272a4; font-size: 9pt;')
-    window.statusBar().addPermanentWidget(ver_label)
+    ver_label.setObjectName(_VER_LABEL_NAME)
+    ver_label.setStyleSheet('color: white; font-size: 9pt;')
+    status_bar.addPermanentWidget(ver_label)
 
 
 _init()
